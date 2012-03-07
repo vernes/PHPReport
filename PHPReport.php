@@ -38,6 +38,7 @@ class PHPReport {
     //report template
     private $_templateDir;
     private $_template;
+    private $_usingTemplate;
     
     //internal collections of data
     private $_data=array();
@@ -195,6 +196,8 @@ class PHPReport {
 		$this->objReader = PHPExcel_IOFactory::createReader($inputFileType);
 		$this->objPHPExcel = $this->objReader->load($this->_templateDir.$this->_template);
 		$this->objWorksheet = $this->objPHPExcel->getActiveSheet();
+        
+        $this->_usingTemplate=true;
 	}
 	
 	/**
@@ -205,18 +208,49 @@ class PHPReport {
 		$this->objPHPExcel = new PHPExcel();
 		$this->objPHPExcel->setActiveSheetIndex(0);
 		$this->objWorksheet = $this->objPHPExcel->getActiveSheet();
+        
+        $this->_usingTemplate=false;
 	}
     
 	/**
 	 * Takes an array of all the data for report
 	 * 
-	 * @param array $data Associative array with two elements
+	 * @param array $dataCollection Associative array with data for report
+     * or an array of such arrays
 	 * id - unique identifier of data group
 	 * data - Single array of data
 	 */
-	public function load($data)
+	public function load($dataCollection)
 	{
-		if(!is_array($data))
+		if(!is_array($dataCollection))
+			die("Could not load a non-array data!");
+        
+        //clear current data
+        $this->clearData();
+        
+        //check if it is a single array of data
+		if(isset ($dataCollection['data']))
+        {
+            $this->addData($dataCollection);
+        }
+        else
+        {
+            //it's an array of arrays of data, add all
+            foreach($dataCollection as $data)
+                $this->addData($data);
+        }
+	}
+    
+    /**
+	 * Takes an array of all the data for report
+	 * 
+	 * @param array $data Associative array with two elements
+	 * id - unique identifier of data group
+	 * data - Single array of data
+     */
+    private function addData($data)
+    {
+        if(!is_array($data))
 			die("Could not load a non-array data!");
 		if(!isset ($data['id']))
 			die("Every array of data needs an 'id'!");
@@ -224,7 +258,131 @@ class PHPReport {
 			die("Loaded array needs an element 'data'!");
 		
 		$this->_data[]=$data;
-	}
+    }
+    
+    /**
+     * Clears internal collection of data 
+     */
+    private function clearData()
+    {
+        $this->_data=array();
+    }
+    
+    /**
+     *Creates a new report based on loaded data 
+     */
+    public function createReport()
+    {
+        foreach($this->_data as $data)
+        {
+            //$data must have id and data elements
+            //$data may also have config, header, footer, group
+            
+            $id=$data['id'];
+            $format=isset($data['format'])?$data['format']:array();
+            $config=isset($data['config'])?$data['config']:array();
+            $group=isset($data['group'])?$data['group']:array();
+            
+            $configHeader=isset($config['header'])?$config['header']:$config;
+            $configData=isset($config['data'])?$config['data']:$config;
+            $configFooter=isset($config['footer'])?$config['footer']:$config;
+            
+            $config=array(
+                'header'=>$configHeader,
+                'data'=>$configData,
+                'footer'=>$configFooter
+            );
+            
+            //set the group
+            $this->_group=$group;
+            
+            $loadCollection=array();
+            
+            $nextRow=$this->objWorksheet->getHighestRow();
+            if($nextRow>1)
+                $nextRow++;
+            $colIndex=-1;
+            
+            //form the header for data
+            if(isset($data['header']))
+            {
+                $headerId='HEADER_'.$id;
+                foreach($data['header'] as $k=>$v)
+                {
+                    $colIndex++;
+                    $tag="{".$headerId.":".$k."}";
+                    $this->objWorksheet->setCellValueByColumnAndRow($colIndex,$nextRow,$tag);
+                    if(isset($config['header'][$k]['width']))
+                        $this->objWorksheet->getColumnDimensionByColumn($colIndex)->setWidth(pixel2unit($config['header'][$k]['width']));
+                    if(isset($config['header'][$k]['align']))
+                        $this->objWorksheet->getStyleByColumnAndRow($colIndex,$nextRow)->getAlignment()->setHorizontal($config['header'][$k]['align']);
+                }
+
+                if($colIndex>-1)
+                {
+                    $this->objWorksheet->getStyle(PHPExcel_Cell::stringFromColumnIndex(0).$nextRow.':'.PHPExcel_Cell::stringFromColumnIndex($colIndex).$nextRow)->applyFromArray($this->headerStyleArray);
+                }
+                
+                //add header row to load collection
+                $loadCollection[]=array('id'=>$headerId,'data'=>$data['header']);
+                
+                //move to next row for data
+                $nextRow++;
+            }
+            
+            
+            //form the data repeating row
+            $dataId='DATA_'.$id;
+            $colIndex=-1;
+
+            //form the template row
+            if(count($data['data'])>0)
+            {
+                //we just need first row of data, to see array keys
+                $singleDataRow=$data['data'][0];
+                foreach($singleDataRow as $k=>$v)
+                {
+                    $colIndex++;
+                    $tag="{".$dataId.":".$k."}";
+                    $this->objWorksheet->setCellValueByColumnAndRow($colIndex,$nextRow,$tag);
+                    if(isset($config['data'][$k]['align']))
+                        $this->objWorksheet->getStyleByColumnAndRow($colIndex,$nextRow)->getAlignment()->setHorizontal($config['data'][$k]['align']);
+                }
+            }
+            
+            //add this row to collection for load but with repeating
+            $loadCollection[]=array('id'=>$dataId,'data'=>$data['data'],'repeat'=>true,'format'=>$format);
+            $this->enableStripRows();
+            
+            //form the footer row for data if needed
+            if(isset($data['footer']))
+            {
+                $footerId='FOOTER_'.$id;
+                $colIndex=-1;
+                $nextRow++;
+                
+                //formiraj template
+                foreach($data['footer'] as $k=>$v)
+                {
+                    $colIndex++;
+                    $tag="{".$footerId.":".$k."}";
+                    $this->objWorksheet->setCellValueByColumnAndRow($colIndex,$nextRow,$tag);
+                    if(isset($config['footer'][$k]['align']))
+                        $this->objWorksheet->getStyleByColumnAndRow($colIndex,$nextRow)->getAlignment()->setHorizontal($config['footer'][$k]['align']);
+                }
+                if($colIndex>-1)
+                {
+                    $this->objWorksheet->getStyle(PHPExcel_Cell::stringFromColumnIndex(0).$nextRow.':'.PHPExcel_Cell::stringFromColumnIndex($colIndex).$nextRow)->applyFromArray($this->footerStyleArray);
+                }
+                
+                //add footer row to load collection
+                $loadCollection[]=array('id'=>$footerId,'data'=>$data['footer'],'format'=>$format);
+            }
+            
+            $this->load($loadCollection);
+            $this->generateReport();
+        }
+    }
     
     /**
      * Generates report based on loaded data 
@@ -351,12 +509,6 @@ class PHPReport {
 			{
 				foreach($format[$key] as $ftype=>$f)
 				{
-					if(preg_match("/\{(\w*)\}/", $f, $fmatches))
-					{
-						//if format is like {someColumn}
-						if(isset($data['data'][$fmatches[1]]))
-							$f=$data['data'][$fmatches[1]];
-					}
 					$value=$this->formatValue($value,$ftype,$f);
 				}
 			}
@@ -380,9 +532,9 @@ class PHPReport {
 		}
 		else
 			$minRows=0;
-		
-		$lastRowFoundAt=end(array_keys($repeatTemplateArray));
-		$firstRowFoundAt=reset(array_keys($repeatTemplateArray));
+        $templateKeys=array_keys($repeatTemplateArray);
+		$lastRowFoundAt=end($templateKeys);
+		$firstRowFoundAt=reset($templateKeys);
 		$rowsFound=count($repeatTemplateArray);
 		
 		$mergeCells=$this->objWorksheet->getMergeCells();
@@ -444,8 +596,9 @@ class PHPReport {
 		else
 			$minRows=0;
 		
-		$lastRowFoundAt=end(array_keys($repeatTemplateArray));
-		$firstRowFoundAt=reset(array_keys($repeatTemplateArray));
+        $templateKeys=array_keys($repeatTemplateArray);
+		$lastRowFoundAt=end($templateKeys);
+		$firstRowFoundAt=reset($templateKeys);
 		$rowsFound=count($repeatTemplateArray);
 		
 		list($rangeStart,$rangeEnd) = PHPExcel_Cell::rangeBoundaries($repeatRange);
@@ -467,7 +620,7 @@ class PHPReport {
 		foreach($this->_group['rows'] as $name=>$rows)
 		{
 			$groupCounter++;
-			$caption=$this->_group['header'][$name];
+			$caption=$this->_group['caption'][$name];
 			$newRowIndex=$firstRowFoundAt+$rowCounter*$rowsFound+$footerCount*$rowsFound+$groupCounter;
 			//insert header for the group
 			$this->objWorksheet->insertNewRowBefore($newRowIndex,1);
@@ -572,12 +725,6 @@ class PHPReport {
                             {
                                 foreach($format[$mkey] as $ftype=>$f)
                                 {
-                                    if(preg_match("/\{(\w*)\}/", $f, $fmatches))
-                                    {
-                                        //if format is like {some_column}
-                                        if(isset($value[$fmatches[1]]))
-                                            $f=$value[$fmatches[1]];
-                                    }
                                     $rValue=$this->formatValue($value[$mkey],$ftype,$f);
                                 }
                             }
@@ -724,6 +871,12 @@ class PHPReport {
      */
     public function render($type='html',$filename='')
     {
+        //create or generate report
+        if($this->_usingTemplate)
+            $this->generateReport();
+        else
+            $this->createReport();
+        
         if($type=='')
 			$type="html";
 		
@@ -847,4 +1000,14 @@ class PHPReport {
 		$this->_headingText=$h;
 	}
 	
+}
+
+/**
+ * converts pixels to excel units
+ * @param float $p
+ * @return float 
+ */
+function pixel2unit($p)
+{
+	return ($p-5)/7;
 }
