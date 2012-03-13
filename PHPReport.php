@@ -53,7 +53,7 @@ class PHPReport {
     private $_noResultText;
     
     //styling
-    private $headerStyleArray = array(
+    private $_headerStyleArray = array(
 				'font' => array(
 					'bold' => true,
 					'color' => array(
@@ -67,7 +67,7 @@ class PHPReport {
 						)
 					)
 			);
-	private $footerStyleArray = array(
+	private $_footerStyleArray = array(
 				'font' => array(
 					'bold' => true,
 				),
@@ -78,7 +78,7 @@ class PHPReport {
 						)
 					)
 				);
-	private $headerGroupStyleArray = array(
+	private $_headerGroupStyleArray = array(
 					'alignment' => array(
 						'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_LEFT
 					),
@@ -92,7 +92,7 @@ class PHPReport {
 							)
 						)
 				);
-	private $footerGroupStyleArray = array(
+	private $_footerGroupStyleArray = array(
 					'font' => array(
 						'bold' => true
 					),
@@ -103,7 +103,7 @@ class PHPReport {
 							)
 						)
 				);
-    private $noResultStyleArray = array(
+    private $_noResultStyleArray = array(
 					'borders' => array(
 						'outline' => array(
 							'style' => PHPExcel_Style_Border::BORDER_THIN
@@ -122,7 +122,7 @@ class PHPReport {
 							)
 						)
 				);
-    private $headingStyleArray = array(
+    private $_headingStyleArray = array(
 				'font' => array(
 					'bold' => true,
 					'color' => array(
@@ -162,7 +162,8 @@ class PHPReport {
         
         foreach($config as $key=>$value)
         {
-            $this->$key=$value;
+            $_key='_'.$key;
+            $this->$_key=$value;
         }
     }
     
@@ -171,7 +172,7 @@ class PHPReport {
      */
     private function init()
     {
-        if(is_file($this->_templateDir.$this->_template))
+        if($this->_template!='')
         {
             $this->loadTemplate();
         }
@@ -186,8 +187,11 @@ class PHPReport {
 	 */
 	public function loadTemplate($template='')
 	{
-		if($template!='' && is_file($this->_templateDir.$template))
+		if($template!='')
 			$this->_template=$template;
+        
+        if(!is_file($this->_templateDir.$this->_template))
+            die('Unable to load template file: '.$this->_templateDir.$this->_template);
 		
 		//identify type of template file
 		$inputFileType = PHPExcel_IOFactory::identify($this->_templateDir.$this->_template);
@@ -320,7 +324,7 @@ class PHPReport {
 
                 if($colIndex>-1)
                 {
-                    $this->objWorksheet->getStyle(PHPExcel_Cell::stringFromColumnIndex(0).$nextRow.':'.PHPExcel_Cell::stringFromColumnIndex($colIndex).$nextRow)->applyFromArray($this->headerStyleArray);
+                    $this->objWorksheet->getStyle(PHPExcel_Cell::stringFromColumnIndex(0).$nextRow.':'.PHPExcel_Cell::stringFromColumnIndex($colIndex).$nextRow)->applyFromArray($this->_headerStyleArray);
                 }
                 
                 //add header row to load collection
@@ -372,7 +376,7 @@ class PHPReport {
                 }
                 if($colIndex>-1)
                 {
-                    $this->objWorksheet->getStyle(PHPExcel_Cell::stringFromColumnIndex(0).$nextRow.':'.PHPExcel_Cell::stringFromColumnIndex($colIndex).$nextRow)->applyFromArray($this->footerStyleArray);
+                    $this->objWorksheet->getStyle(PHPExcel_Cell::stringFromColumnIndex(0).$nextRow.':'.PHPExcel_Cell::stringFromColumnIndex($colIndex).$nextRow)->applyFromArray($this->_footerStyleArray);
                 }
                 
                 //add footer row to load collection
@@ -629,7 +633,7 @@ class PHPReport {
 
 			//add style for the header
 			
-			$this->objWorksheet->getStyle($firstCol.$newRowIndex)->applyFromArray($this->headerGroupStyleArray);
+			$this->objWorksheet->getStyle($firstCol.$newRowIndex)->applyFromArray($this->_headerGroupStyleArray);
 			
 			//add data for the group
 			foreach ($rows as $row)
@@ -667,7 +671,7 @@ class PHPReport {
 				$this->generateSingleRepeatingRow($this->_group['summary'][$name], $repeatTemplateArray, '', $skip, $data['id'], $data['format']);
 				//add style for the footer
 				
-				$this->objWorksheet->getStyle($firstCol.$newRowIndex.":".$lastCol.$newRowIndex)->applyFromArray($this->footerGroupStyleArray);
+				$this->objWorksheet->getStyle($firstCol.$newRowIndex.":".$lastCol.$newRowIndex)->applyFromArray($this->_footerGroupStyleArray);
 			}
 			
 			//remove merge on template, BUG fix
@@ -835,7 +839,7 @@ class PHPReport {
 		
 		$this->objWorksheet->setCellValue($colMin.$rowIndex, $this->_noResultText);
 		
-		$this->objWorksheet->getStyle($colMin.$rowIndex.":".$colMax.$rowIndex)->applyFromArray($this->noResultStyleArray);
+		$this->objWorksheet->getStyle($colMin.$rowIndex.":".$colMax.$rowIndex)->applyFromArray($this->_noResultStyleArray);
     }
     
     /**
@@ -861,7 +865,7 @@ class PHPReport {
 		$this->objWorksheet->getRowDimension('1')->setRowHeight(48);
 		
         //Apply style
-		$this->objWorksheet->getStyle("A1")->applyFromArray($this->headingStyleArray);
+		$this->objWorksheet->getStyle("A1")->applyFromArray($this->_headingStyleArray);
     }
     
     /**
