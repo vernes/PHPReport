@@ -489,10 +489,15 @@ class PHPReport {
 				    //needs to be database agnostic
 				}
 			}
-			
-			//call the replacing function
-			$this->searchAndReplace();
 		}
+
+        //call the replacing function
+        $this->searchAndReplace();
+        
+        //generate heading if heading text is set
+        if($this->_headingText!='')
+            $this->generateHeading();
+		
     }
     
     /**
