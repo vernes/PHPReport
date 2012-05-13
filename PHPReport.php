@@ -158,7 +158,7 @@ class PHPReport {
     public function setConfig($config)
     {
         if(!is_array($config))
-            die('Unable to use non-array configuration');
+            throw new Exception('Unable to use non-array configuration');
         
         foreach($config as $key=>$value)
         {
@@ -191,7 +191,7 @@ class PHPReport {
 			$this->_template=$template;
         
         if(!is_file($this->_templateDir.$this->_template))
-            die('Unable to load template file: '.$this->_templateDir.$this->_template);
+            throw new Exception('Unable to load template file: '.$this->_templateDir.$this->_template);
 		
 		//identify type of template file
 		$inputFileType = PHPExcel_IOFactory::identify($this->_templateDir.$this->_template);
@@ -227,7 +227,7 @@ class PHPReport {
 	public function load($dataCollection)
 	{
 		if(!is_array($dataCollection))
-			die("Could not load a non-array data!");
+			throw new Exception("Could not load a non-array data!");
         
         //clear current data
         $this->clearData();
@@ -255,11 +255,11 @@ class PHPReport {
     private function addData($data)
     {
         if(!is_array($data))
-			die("Could not load a non-array data!");
+			throw new Exception("Could not load a non-array data!");
 		if(!isset ($data['id']))
-			die("Every array of data needs an 'id'!");
+			throw new Exception("Every array of data needs an 'id'!");
 		if(!isset ($data['data']))
-			die("Loaded array needs an element 'data'!");
+			throw new Exception("Loaded array needs an element 'data'!");
 		
 		$this->_data[]=$data;
     }
