@@ -23,7 +23,7 @@
  * @author Vernes Šiljegović
  * @copyright  Copyright (c) 2012 PHPReport
  * @license    http://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt	LGPL
- * @version 1.0, 2012-03-04
+ * @version 1.1, 2013-01-06
  */
 
 /**
@@ -45,6 +45,8 @@ class PHPReport {
     private $_search=array();
     private $_replace=array();
     private $_group=array();
+	private $_lastColumn='A';
+	private $_lastRow=1;
     
     //parameters
     private $_renderHeading=false;
@@ -212,6 +214,11 @@ class PHPReport {
 		$this->objPHPExcel = new PHPExcel();
 		$this->objPHPExcel->setActiveSheetIndex(0);
 		$this->objWorksheet = $this->objPHPExcel->getActiveSheet();
+		//TODO: other parameters
+		$this->objWorksheet->getPageSetup()->setOrientation(PHPExcel_Worksheet_PageSetup::ORIENTATION_PORTRAIT);
+		$this->objWorksheet->getPageSetup()->setPaperSize(PHPExcel_Worksheet_PageSetup::PAPERSIZE_A4);
+		$this->objWorksheet->getPageSetup()->setHorizontalCentered(true);
+		$this->objWorksheet->getPageSetup()->setVerticalCentered(false);
         
         $this->_usingTemplate=false;
 	}
@@ -393,6 +400,8 @@ class PHPReport {
      */
     public function generateReport()
     {
+		$this->_lastColumn=$this->objWorksheet->getHighestColumn();//TODO: better detection
+		$this->_lastRow=$this->objWorksheet->getHighestRow();
         foreach($this->_data as $data)
 		{
 			if(isset ($data['repeat']) && $data['repeat']==true)
@@ -404,7 +413,7 @@ class PHPReport {
 				$lastRow='';
 				
 				$firstCol='A';//TODO: better detection
-				$lastCol=$this->objWorksheet->getHighestColumn();//TODO: better detection
+				$lastCol=$this->_lastColumn;
 				
 				//scan the template
 				//search for repeating part
@@ -435,9 +444,17 @@ class PHPReport {
 				if($foundTags)
 					$repeatRange=$firstCol.$firstRow.":".$lastCol.$lastRow;
 				
+				//check if this is the last row
+				if($foundTags && $lastRow==$this->_lastRow)
+					$data['last']=true;
+				
 				//set initial format data
 				if(! isset($data['format']))
 					$data['format']=array();
+				
+				//set default step as 1
+				if(! isset($data['step']))
+					$data['step']=1;
 				
 				//check if data is an array
 				if(is_array($data['data']))
@@ -541,6 +558,13 @@ class PHPReport {
 		}
 		else
 			$minRows=0;
+		
+		//is this the last data
+		if(isset($data['last']))
+			$last=$data['last'];
+		else
+			$last=false;
+		
         $templateKeys=array_keys($repeatTemplateArray);
 		$lastRowFoundAt=end($templateKeys);
 		$firstRowFoundAt=reset($templateKeys);
@@ -556,16 +580,18 @@ class PHPReport {
 				$needMerge[]=$mergeCell;
 			}
 		}
+		
+		//check if any new rows need to bi inserted
+		$dataRows=count($data['data']);
+		if($minRows<$dataRows)
+			$this->objWorksheet->insertNewRowBefore($lastRowFoundAt+1,$rowsFound * ($dataRows - $minRows));
+		
 		//check all the data
 		foreach ($data['data'] as $value)
 		{
 			$rowCounter++;
 			$skip=$rowCounter*$rowsFound;
 			$newRowIndex=$firstRowFoundAt+$skip;
-			
-			//insert one or more rows if needed
-			if($minRows<$rowCounter)
-				$this->objWorksheet->insertNewRowBefore($newRowIndex,$rowsFound);
 			
 			//copy merge definitions
 			foreach($needMerge as $nm)
@@ -577,7 +603,7 @@ class PHPReport {
 			}
 			
 			//generate row of data
-			$this->generateSingleRepeatingRow($value, $repeatTemplateArray, $rowCounter, $skip, $data['id'], $data['format']);
+			$this->generateSingleRepeatingRow($value, $repeatTemplateArray, $rowCounter, $skip, $data['id'], $data['format'], $data['step']);
 		}
 		//remove merge on template, BUG fix
 		foreach($needMerge as $nm)
@@ -662,7 +688,7 @@ class PHPReport {
 				}
 
 				//generate row of data
-				$this->generateSingleRepeatingRow($value, $repeatTemplateArray, $rowCounter, $skip, $data['id'], $data['format']);
+				$this->generateSingleRepeatingRow($value, $repeatTemplateArray, $rowCounter, $skip, $data['id'], $data['format'], $data['step']);
 			}
 			
 			//include the footer if defined
@@ -673,7 +699,7 @@ class PHPReport {
 				$newRowIndex=$firstRowFoundAt+$skip;
 				
 				$this->objWorksheet->insertNewRowBefore($newRowIndex,$rowsFound);
-				$this->generateSingleRepeatingRow($this->_group['summary'][$name], $repeatTemplateArray, '', $skip, $data['id'], $data['format']);
+				$this->generateSingleRepeatingRow($this->_group['summary'][$name], $repeatTemplateArray, '', $skip, $data['id'], $data['format'], $data['step']);
 				//add style for the footer
 				
 				$this->objWorksheet->getStyle($firstCol.$newRowIndex.":".$lastCol.$newRowIndex)->applyFromArray($this->_footerGroupStyleArray);
@@ -695,8 +721,9 @@ class PHPReport {
      * @param int $skip
      * @param string $id
      * @param array $format 
+     * @param int $step
      */
-	private function generateSingleRepeatingRow(& $value, & $repeatTemplateArray, $rowCounter, $skip, $id, $format)
+	private function generateSingleRepeatingRow(& $value, & $repeatTemplateArray, $rowCounter, $skip, $id, $format, $step)
     {
         foreach($repeatTemplateArray as $rowKey=>$rowData)
         {
@@ -725,7 +752,7 @@ class PHPReport {
                             else
                                 $offset=0;
 
-                            $rValue=$rowCounter+(int)$offset;
+                            $rValue=($rowCounter-1)*$step+1+(int)$offset;
                         }
                         elseif(key_exists($mkey, $value))
                         {
