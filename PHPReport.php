@@ -404,6 +404,9 @@ class PHPReport {
 		$this->_lastRow=$this->objWorksheet->getHighestRow();
         foreach($this->_data as $data)
 		{
+			$group=isset($data['group'])?$data['group']:array();
+    			$this->_group = $group;
+    		
 			if(isset ($data['repeat']) && $data['repeat']==true)
 			{
 				//Repeating data
