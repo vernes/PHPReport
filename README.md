@@ -12,8 +12,8 @@ PHPReport is a class for building and exporting reports from PHP. It's based on 
 
 ## Installation
 
-It's based on [PHPExcel](http://www.phpexcel.net/), so download it and extract next to PHPReport.php file.
-To start using it, simply include PHPReport.php in your script and follow the documentation.
+Install [composer](https://getcomposer.org), and run `composer update` to install
+the required `PHPExcel` dependencies
 
 ## Usage and examples
 

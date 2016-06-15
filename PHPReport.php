@@ -26,12 +26,7 @@
  * @version 1.1, 2013-01-06
  */
 
-/**
- * PHPExcel
- *
- * @copyright  Copyright (c) 2006 - 2011 PHPExcel (http://www.codeplex.com/PHPExcel)
- */
-require_once 'PHPExcel.php';
+require __DIR__ . '/vendor/autoload.php';
 
 class PHPReport {
     
