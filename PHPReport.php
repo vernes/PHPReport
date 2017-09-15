@@ -1033,6 +1033,34 @@ class PHPReport {
 	{
 		$this->_headingText=$h;
 	}
+
+
+	/**
+	* Get PHPExcel object to add new parameters
+	*/
+	public function getPHPExcelObject()
+	{
+		return $this->objPHPExcel;
+	}
+
+	/**
+	* Renders report as a CSV file
+	*/
+	private function renderCsv($filename)
+	{
+		header('Content-type: text/csv');
+		header('Content-Disposition: attachment;filename="' . $filename . '.csv"');
+		header('Cache-Control: max-age=0');
+
+		$this->objWriter = PHPExcel_IOFactory::createWriter($this->objPHPExcel, 'CSV');
+
+		$this->objWriter->save('php://output');
+        	unset($this->objWriter);
+        	unset($this->objWorksheet);
+        	unset($this->objReader);
+        	unset($this->objPHPExcel);
+        	exit();
+	}
 	
 }
 
