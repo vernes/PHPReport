@@ -929,6 +929,8 @@ class PHPReport {
 			return $this->renderXls($filename);
 		elseif(strtolower($type)=='pdf')
 			return $this->renderPdf($filename);
+		elseif(strtolower($type)=='csv')
+			return $this->renderCsv($filename);
 		else
 			return "Error: unsupported export type!"; //TODO: better error handling
     }
